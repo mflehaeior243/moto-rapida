@@ -1,0 +1,57 @@
+// server.js
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const { v4: uuidv4 } = require('uuid');
+
+const app = express();
+app.use(cors());
+app.use(bodyParser.json());
+
+const DATA_FILE = path.join(__dirname, 'citas.json');
+
+function readData() {
+  try {
+    const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    return JSON.parse(raw || '[]');
+  } catch (err) {
+    return [];
+  }
+}
+function writeData(data) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+app.get('/api/citas', (req, res) => {
+  const citas = readData();
+  res.json(citas);
+});
+
+app.post('/api/citas', (req, res) => {
+  const { nombre, modeloMoto, servicio, fecha } = req.body;
+  if (!nombre || !modeloMoto || !servicio || !fecha) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios' });
+  }
+  const citas = readData();
+  const nueva = { id: uuidv4(), nombre, modeloMoto, servicio, fecha };
+  citas.push(nueva);
+  writeData(citas);
+  res.status(201).json(nueva);
+});
+
+app.delete('/api/citas/:id', (req, res) => {
+  const { id } = req.params;
+  let citas = readData();
+  const prevLen = citas.length;
+  citas = citas.filter(c => c.id !== id);
+  if (citas.length === prevLen) return res.status(404).json({ error: 'No encontrado' });
+  writeData(citas);
+  res.json({ success: true });
+});
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, () => console.log(`API escuchando en http://localhost:${PORT}`));
+
+
